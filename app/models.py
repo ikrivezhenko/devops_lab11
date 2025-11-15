@@ -45,44 +45,44 @@ class Task(Base):
         }
 
 class UserCreate(BaseModel):
-    # Обязательные поля для создания пользователя
     username: str
-    email: EmailStr
-    full_name: str
+    email: str  # Убрал EmailStr для простоты
+    full_name: Optional[str] = ""
 
 class UserUpdate(BaseModel):
-    # Все поля необязательные для обновления
     username: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     full_name: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: int
     username: str
     email: str
-    full_name: Optional[str]
-    created_at: datetime
-    updated_at: datetime
+    full_name: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 class TaskCreate(BaseModel):
-    # Обязательные поля для создания задачи
     name: str
-    description: Optional[str] = None
+    description: Optional[str] = ""
+    done_flag: Optional[bool] = False
+    user_id: Optional[int] = None
 
 class TaskUpdate(BaseModel):
-    # Все поля необязательные для обновления
     name: Optional[str] = None
     description: Optional[str] = None
     done_flag: Optional[bool] = None
+    user_id: Optional[int] = None
 
 class TaskResponse(BaseModel):
     task_id: int
     name: str
     description: Optional[str]
     done_flag: bool
+    user_id: Optional[int]
 
     class Config:
         from_attributes = True
