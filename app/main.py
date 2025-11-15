@@ -40,7 +40,7 @@ def post_user(user_data: dict, db: Session = Depends(get_db)):
             detail="Username и email обязательны"
         )
 
-        # Проверка на уникальность username
+    # Проверка на уникальность username
     existing_user = db.query(models.User).filter(models.User.username == user_data['username']).first()
     if existing_user:
         raise HTTPException(
