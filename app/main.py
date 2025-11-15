@@ -18,8 +18,14 @@ def startup():
 # Возвращает всех пользователей
 @app.get("/users", response_model=list[UserResponse])
 def get_users(db: Session = Depends(get_db)):
-    users = db.query(User).all()
-    return users
+    try:
+        users = db.query(User).all()
+        return users
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при получении списка пользователей"
+        )
 
 
 # Возвращает пользователя по ID
@@ -70,14 +76,11 @@ def post_user(user_data: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_409_CONFLICT,
             detail="Пользователь с таким username или email уже существует"
         )
-    except HTTPException:
-        raise
     except Exception as e:
         db.rollback()
-        print(f"Error creating user: {str(e)}")  # Для отладки
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Внутренняя ошибка сервера"
+            detail="Ошибка при создании пользователя"
         )
 
 
@@ -92,18 +95,18 @@ def update_user(user_id: int, user_data: UserUpdate, db: Session = Depends(get_d
                 detail="Пользователь не найден"
             )
 
-        # Проверяем, что хотя бы одно поле для обновления передано
-        if not any([user_data.username, user_data.email, user_data.full_name is not None]):
+        # Проверяем, что переданы данные для обновления
+        update_data = user_data.dict(exclude_unset=True)
+        if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Не передано ни одного поля для обновления"
+                detail="Не переданы данные для обновления"
             )
 
-        # Обновляем только переданные поля
-        if user_data.username is not None:
-            # Проверка уникальности username
+        # Проверка уникальности username
+        if 'username' in update_data:
             existing_username = db.query(User).filter(
-                User.username == user_data.username,
+                User.username == update_data['username'],
                 User.id != user_id
             ).first()
             if existing_username:
@@ -111,12 +114,12 @@ def update_user(user_id: int, user_data: UserUpdate, db: Session = Depends(get_d
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Пользователь с таким username уже существует"
                 )
-            user.username = user_data.username
+            user.username = update_data['username']
 
-        if user_data.email is not None:
-            # Проверка уникальности email
+        # Проверка уникальности email
+        if 'email' in update_data:
             existing_email = db.query(User).filter(
-                User.email == user_data.email,
+                User.email == update_data['email'],
                 User.id != user_id
             ).first()
             if existing_email:
@@ -124,10 +127,10 @@ def update_user(user_id: int, user_data: UserUpdate, db: Session = Depends(get_d
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Пользователь с таким email уже существует"
                 )
-            user.email = user_data.email
+            user.email = update_data['email']
 
-        if user_data.full_name is not None:
-            user.full_name = user_data.full_name
+        if 'full_name' in update_data:
+            user.full_name = update_data['full_name']
 
         db.commit()
         db.refresh(user)
@@ -143,10 +146,9 @@ def update_user(user_id: int, user_data: UserUpdate, db: Session = Depends(get_d
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error updating user: {str(e)}")  # Для отладки
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Внутренняя ошибка сервера"
+            detail="Ошибка при обновлении пользователя"
         )
 
 
@@ -167,18 +169,23 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
     except Exception as e:
         db.rollback()
-        print(f"Error deleting user: {str(e)}")  # Для отладки
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Внутренняя ошибка сервера"
+            detail="Ошибка при удалении пользователя"
         )
 
 
 # Получить все задачи
 @app.get("/tasks", response_model=list[TaskResponse])
 def get_tasks(db: Session = Depends(get_db)):
-    tasks = db.query(Task).all()
-    return tasks
+    try:
+        tasks = db.query(Task).all()
+        return tasks
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при получении списка задач"
+        )
 
 
 # Получить задачу по ID
@@ -198,7 +205,7 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
 def create_task(task_data: TaskCreate, db: Session = Depends(get_db)):
     try:
         # Если передан user_id, проверяем существование пользователя
-        if task_data.user_id:
+        if task_data.user_id is not None:
             user = db.query(User).filter(User.id == task_data.user_id).first()
             if not user:
                 raise HTTPException(
@@ -221,10 +228,9 @@ def create_task(task_data: TaskCreate, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error creating task: {str(e)}")  # Для отладки
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Внутренняя ошибка сервера"
+            detail="Ошибка при создании задачи"
         )
 
 
@@ -239,33 +245,33 @@ def update_task(task_id: int, task_data: TaskUpdate, db: Session = Depends(get_d
                 detail="Задача не найдена"
             )
 
-        # Проверяем, что хотя бы одно поле для обновления передано
-        if not any([task_data.name, task_data.description is not None, task_data.done_flag is not None,
-                    task_data.user_id is not None]):
+        # Проверяем, что переданы данные для обновления
+        update_data = task_data.dict(exclude_unset=True)
+        if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Не передано ни одного поля для обновления"
+                detail="Не переданы данные для обновления"
             )
 
-        # Обновляем только переданные поля
-        if task_data.name is not None:
-            task.name = task_data.name
+        # Обновляем поля
+        if 'name' in update_data:
+            task.name = update_data['name']
 
-        if task_data.description is not None:
-            task.description = task_data.description
+        if 'description' in update_data:
+            task.description = update_data['description']
 
-        if task_data.done_flag is not None:
-            task.done_flag = task_data.done_flag
+        if 'done_flag' in update_data:
+            task.done_flag = update_data['done_flag']
 
-        if task_data.user_id is not None:
-            # Проверяем существование пользователя
-            user = db.query(User).filter(User.id == task_data.user_id).first()
-            if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Указанный пользователь не существует"
-                )
-            task.user_id = task_data.user_id
+        if 'user_id' in update_data:
+            if update_data['user_id'] is not None:
+                user = db.query(User).filter(User.id == update_data['user_id']).first()
+                if not user:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Указанный пользователь не существует"
+                    )
+            task.user_id = update_data['user_id']
 
         db.commit()
         db.refresh(task)
@@ -275,10 +281,9 @@ def update_task(task_id: int, task_data: TaskUpdate, db: Session = Depends(get_d
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error updating task: {str(e)}")  # Для отладки
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Внутренняя ошибка сервера"
+            detail="Ошибка при обновлении задачи"
         )
 
 
@@ -299,8 +304,7 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
 
     except Exception as e:
         db.rollback()
-        print(f"Error deleting task: {str(e)}")  # Для отладки
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Внутренняя ошибка сервера"
+            detail="Ошибка при удалении задачи"
         )

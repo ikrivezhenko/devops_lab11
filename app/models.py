@@ -46,7 +46,7 @@ class Task(Base):
 
 class UserCreate(BaseModel):
     username: str
-    email: str  # Убрал EmailStr для простоты
+    email: str
     full_name: Optional[str] = ""
 
 class UserUpdate(BaseModel):
@@ -59,8 +59,8 @@ class UserResponse(BaseModel):
     username: str
     email: str
     full_name: str
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None  # Сделать optional
+    updated_at: Optional[datetime] = None  # Сделать optional
 
     class Config:
         from_attributes = True
