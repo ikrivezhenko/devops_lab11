@@ -1,22 +1,13 @@
-# Этап сборки
-FROM python:3.10-slim as builder
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
-
-# Финальный этап
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# Копируем установленные пакеты из этапа сборки
-COPY --from=builder /root/.local /root/.local
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY app/ ./app/
 
-# Делаем скрипты доступными
-ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
